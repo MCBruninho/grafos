@@ -1,0 +1,80 @@
+name: CI - Validar Compilação (C)
+
+on:
+  push:
+    branches: [ main, 'pratica-*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  compilar-praticas:
+    name: 🔨 Compilar Práticas
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Instalar GCC
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc
+
+      - name: Verificar estrutura
+        run: |
+          if [ ! -d "praticas" ]; then
+            echo "❌ ERRO: PASTA 'praticas/' não encontrada."
+            echo "   Certifique-se de que a PASTA existe na raiz do repositório."
+            exit 1
+          fi
+          echo "✅ PASTA 'praticas/' encontrada."        
+
+      - name: Compilar práticas
+        run: |
+          set -e
+          ERROS=0
+          SUCESSOS=0
+
+          echo "🔍 Procurando arquivos .c em praticas/*/ ..."
+          echo ""
+
+          for PASTA in ./praticas/*/; do
+            [ -d "$PASTA" ] || continue
+            
+            PASTA_NOME=$(basename "$PASTA")
+            echo "📂 [$PASTA_NOME]"
+            
+            ARQUIVOS_C=$(find "$PASTA" -maxdepth 1 -name "*.c" | sort)
+            
+            if [ -z "$ARQUIVOS_C" ]; then
+              echo "   ⚠️ Nenhum arquivo .c encontrado."
+              continue
+            fi
+            
+            echo "   Compilando..."
+              
+            if gcc -Wall -Wextra -Werror -std=c11 "$PASTA/*.c" -o "$PASTA/main" -lm 2>&1; then
+              echo "   ✅ SUCESSO"
+              SUCESSOS=$((SUCESSOS + 1))
+            else
+              echo "   ❌ ERRO DE COMPILAÇÃO"
+              ERROS=$((ERROS + 1))
+            fi
+            echo ""
+          done
+
+          echo "========================================"
+          echo "📊 RESUMO: $SUCESSOS OK | $ERROS ERRO(S)"
+          echo "========================================"
+          
+          if [ $ERROS -gt 0 ]; then
+            echo "❌ Corrija os erros acima e faça um novo commit/push."
+            exit 1
+          fi
+          
+          if [ $SUCESSOS -eq 0 ]; then
+            echo "⚠️ Nenhum arquivo .c foi compilado."
+            echo "   Verifique se você criou os arquivos na PASTA correta."
+            exit 1
+          fi
+          
+          echo "✅ Todos os arquivos compilaram com sucesso!"
